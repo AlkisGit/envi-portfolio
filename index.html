@@ -2,7 +2,837 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0"><!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Envi Koleta</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400;1,700&family=Geist:wght@200;300;400;500&display=swap" rel="stylesheet">
+<style>
+
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: #fff;
+  color: #0a0a0a;
+  font-family: 'Geist', 'DM Sans', system-ui, sans-serif;
+  font-weight: 300;
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* ── CURSOR ── */
+#cur {
+  position: fixed;
+  width: 6px; height: 6px;
+  background: #0a0a0a;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transform: translate(-50%,-50%);
+  transition: width .2s, height .2s;
+}
+#cur-ring {
+  position: fixed;
+  width: 30px; height: 30px;
+  border: 1px solid rgba(10,10,10,0.3);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transform: translate(-50%,-50%);
+  transition: width .4s cubic-bezier(.16,1,.3,1), height .4s cubic-bezier(.16,1,.3,1), border-color .3s;
+}
+body.hov #cur { width: 10px; height: 10px; }
+body.hov #cur-ring { width: 50px; height: 50px; border-color: rgba(10,10,10,0.15); }
+
+/* NAV cursor = crosshair */
+body.cur-nav #cur { border-radius: 0; width: 1px; height: 18px; background: #0a0a0a; }
+body.cur-nav #cur-ring {
+  border: none;
+  background:
+    linear-gradient(#0a0a0a,#0a0a0a) center/1px 30px no-repeat,
+    linear-gradient(#0a0a0a,#0a0a0a) center/30px 1px no-repeat;
+  border-radius: 0;
+  opacity: 0.25;
+}
+
+/* ── LOADER ── */
+#loader {
+  position: fixed; inset: 0; z-index: 8000;
+  background: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.ld-inner {
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  overflow: hidden;
+}
+.ld-row { overflow: hidden; }
+.ld-txt {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 6vw, 72px);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  color: #0a0a0a;
+  display: block;
+  transform: translateY(110%);
+  animation: slideUp .8s cubic-bezier(.16,1,.3,1) forwards;
+}
+.ld-row:nth-child(1) .ld-txt { animation-delay: .05s }
+.ld-row:nth-child(2) .ld-txt { animation-delay: .18s; font-style: italic; }
+.ld-line {
+  width: 0; height: 1px; background: #0a0a0a;
+  margin-top: 32px;
+  animation: lineGrow 1.2s cubic-bezier(.16,1,.3,1) .3s forwards;
+}
+@keyframes slideUp { to { transform: translateY(0) } }
+@keyframes lineGrow { to { width: min(260px, 50vw) } }
+
+/* ── NAV ── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 500;
+  padding: 28px 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  transition: background .4s, border-color .4s;
+}
+nav.stuck {
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid #e8e8e8;
+}
+.nav-logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px; font-style: italic; font-weight: 400;
+  color: #0a0a0a; text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.nav-links { display: flex; gap: 36px; list-style: none; }
+.nav-links a {
+  font-size: 11px; font-weight: 400; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #888;
+  text-decoration: none; transition: color .2s; cursor: none;
+}
+.nav-links a:hover { color: #0a0a0a; }
+.nav-avail {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; font-weight: 400; letter-spacing: 0.08em; color: #888;
+}
+.nav-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #0a0a0a;
+  animation: blink 2.5s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.25} }
+
+/* ── HERO ── */
+#hero {
+  min-height: 100svh;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 0 56px 64px;
+  border-bottom: 1px solid #e8e8e8;
+  position: relative;
+}
+.hero-index {
+  position: absolute; top: 120px; right: 56px;
+  font-size: 11px; font-weight: 400; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #ccc;
+  writing-mode: vertical-lr;
+  opacity: 0; animation: fadeIn .6s .8s forwards;
+}
+.hero-kicker {
+  font-size: 11px; font-weight: 400; letter-spacing: 0.2em;
+  text-transform: uppercase; color: #888;
+  margin-bottom: 24px;
+  opacity: 0; animation: fadeUp .6s .35s forwards;
+}
+.hero-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(56px, 9vw, 136px);
+  font-weight: 400; line-height: 0.92;
+  letter-spacing: -0.03em;
+}
+.hero-title-row { overflow: hidden; }
+.hero-title-inner {
+  display: block;
+  transform: translateY(110%);
+  animation: slideUp .9s cubic-bezier(.16,1,.3,1) forwards;
+}
+.hero-title-row:nth-child(1) .hero-title-inner { animation-delay: .4s }
+.hero-title-row:nth-child(2) .hero-title-inner { animation-delay: .55s; font-style: italic; }
+.hero-title-row:nth-child(3) .hero-title-inner { animation-delay: .7s }
+
+.hero-bottom {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-top: 56px; padding-top: 32px;
+  border-top: 1px solid #e8e8e8;
+  opacity: 0; animation: fadeUp .6s 1s forwards;
+}
+.hero-desc {
+  font-size: 15px; font-weight: 300; line-height: 1.7;
+  color: #555; max-width: 380px;
+}
+.hero-actions {
+  display: flex; gap: 20px; align-items: center;
+}
+.btn-primary {
+  display: inline-block;
+  background: #0a0a0a; color: #fff;
+  padding: 12px 28px;
+  font-size: 11px; font-weight: 400; letter-spacing: 0.14em;
+  text-transform: uppercase; text-decoration: none; cursor: none;
+  transition: background .2s, transform .2s;
+}
+.btn-primary:hover { background: #333; transform: translateY(-1px); }
+.btn-text {
+  font-size: 11px; font-weight: 400; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #888; text-decoration: none;
+  cursor: none; transition: color .2s;
+  border-bottom: 1px solid #e8e8e8;
+  padding-bottom: 2px;
+}
+.btn-text:hover { color: #0a0a0a; border-color: #0a0a0a; }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:none} }
+@keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+/* ── TICKER ── */
+.ticker {
+  overflow: hidden; border-bottom: 1px solid #e8e8e8;
+  padding: 14px 0; background: #0a0a0a;
+}
+.ticker-track {
+  display: flex; white-space: nowrap;
+  animation: tickRoll 20s linear infinite;
+}
+.ti {
+  font-size: 11px; font-weight: 400; letter-spacing: 0.18em;
+  text-transform: uppercase; color: rgba(255,255,255,0.6);
+  padding: 0 28px; flex-shrink: 0;
+}
+.ti-sep { color: rgba(255,255,255,0.2); }
+@keyframes tickRoll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+/* ── SECTION UTILS ── */
+.eyebrow {
+  font-size: 10px; font-weight: 400; letter-spacing: 0.28em;
+  text-transform: uppercase; color: #888;
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.eyebrow::before { content:''; width:20px; height:1px; background:#ccc; flex-shrink:0; }
+
+.reveal {
+  opacity: 0; transform: translateY(28px);
+  transition: opacity .8s cubic-bezier(.16,1,.3,1), transform .8s cubic-bezier(.16,1,.3,1);
+}
+.reveal.vis { opacity: 1; transform: none; }
+.d1{transition-delay:.08s} .d2{transition-delay:.16s}
+.d3{transition-delay:.24s} .d4{transition-delay:.32s}
+
+/* ── ABOUT ── */
+#about {
+  padding: 120px 56px;
+  display: grid; grid-template-columns: 1fr 1.2fr;
+  gap: 80px; align-items: start;
+  border-bottom: 1px solid #e8e8e8;
+}
+.about-heading {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 3.5vw, 52px);
+  font-weight: 400; line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.about-heading em { font-style: italic; }
+.stat-row {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  border-top: 1px solid #e8e8e8; margin-top: 48px;
+}
+.stat {
+  padding: 24px 0; border-right: 1px solid #e8e8e8;
+  padding-right: 20px; padding-left: 0;
+}
+.stat:last-child { border-right: none; padding-left: 20px; }
+.stat:nth-child(2) { padding-left: 20px; }
+.s-num {
+  font-family: 'Playfair Display', serif;
+  font-size: 38px; font-weight: 400; line-height: 1; color: #0a0a0a;
+}
+.s-lbl {
+  font-size: 10px; font-weight: 400; letter-spacing: 0.15em;
+  text-transform: uppercase; color: #aaa; margin-top: 6px;
+}
+.about-body {
+  font-size: 16px; font-weight: 300; line-height: 1.78;
+  color: #444; margin-bottom: 18px;
+}
+.about-body strong { color: #0a0a0a; font-weight: 400; }
+.skills-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin: 24px 0 32px; }
+.skill {
+  font-size: 10px; font-weight: 400; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 6px 12px;
+  border: 1px solid #e8e8e8; color: #888;
+  transition: border-color .2s, color .2s; cursor: none;
+}
+.skill:hover { border-color: #0a0a0a; color: #0a0a0a; }
+.info-grid { border-top: 1px solid #e8e8e8; }
+.info-row {
+  display: grid; grid-template-columns: 120px 1fr;
+  padding: 13px 0; border-bottom: 1px solid #e8e8e8;
+}
+.ik { font-size: 10px; font-weight: 400; letter-spacing: 0.15em; text-transform: uppercase; color: #bbb; }
+.iv { font-size: 13px; font-weight: 300; color: #0a0a0a; }
+.iv a { color: #0a0a0a; text-decoration: none; border-bottom: 1px solid #e8e8e8; }
+.avail { display: flex; align-items: center; gap: 8px; }
+.avail-dot { width: 6px; height: 6px; border-radius: 50%; background: #0a0a0a; animation: blink 2.5s infinite; }
+
+/* ── WORK ── */
+#work { padding: 120px 56px 0; }
+.work-header {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 48px; padding-bottom: 24px;
+  border-bottom: 1px solid #e8e8e8;
+}
+.work-heading {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(36px, 4.5vw, 64px);
+  font-weight: 400; letter-spacing: -0.03em; line-height: 1;
+}
+.work-heading em { font-style: italic; }
+.bh-link {
+  font-size: 11px; font-weight: 400; letter-spacing: 0.14em;
+  text-transform: uppercase; color: #888; text-decoration: none;
+  border-bottom: 1px solid #e8e8e8; padding-bottom: 2px;
+  transition: color .2s, border-color .2s; cursor: none;
+  white-space: nowrap;
+}
+.bh-link:hover { color: #0a0a0a; border-color: #0a0a0a; }
+
+/* MASONRY */
+.masonry {
+  columns: 3; column-gap: 12px;
+}
+.card {
+  break-inside: avoid; margin-bottom: 12px;
+  position: relative; overflow: hidden;
+  background: #f5f5f5; cursor: none;
+}
+.card img {
+  width: 100%; height: auto; display: block;
+  filter: grayscale(8%) contrast(1.02);
+  transition: transform .7s cubic-bezier(.16,1,.3,1), filter .5s;
+}
+.card:hover img {
+  transform: scale(1.03);
+  filter: grayscale(0%) contrast(1.04);
+}
+.card-over {
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0.94);
+  opacity: 0; transition: opacity .3s;
+  display: flex; flex-direction: column;
+  justify-content: flex-end; padding: 20px;
+}
+.card:hover .card-over { opacity: 1; }
+.c-cat {
+  font-size: 9px; font-weight: 400; letter-spacing: 0.22em;
+  text-transform: uppercase; color: #888; margin-bottom: 5px;
+}
+.c-name {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px; font-weight: 400; line-height: 1.2; color: #0a0a0a;
+}
+.c-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-top: 10px; font-size: 9px; font-weight: 400;
+  letter-spacing: 0.18em; text-transform: uppercase;
+  color: #0a0a0a; text-decoration: none;
+  border-bottom: 1px solid #0a0a0a; padding-bottom: 1px;
+  transition: gap .25s;
+}
+.card:hover .c-link { gap: 9px; }
+
+/* Work bottom CTA */
+.work-cta-wrap {
+  text-align: center; padding: 56px 0;
+  border-top: 1px solid #e8e8e8; margin-top: 12px;
+}
+
+/* ── GHOST MARQUEE ── */
+.ghost-marquee {
+  overflow: hidden; padding: 24px 0;
+  border-top: 1px solid #e8e8e8;
+  border-bottom: 1px solid #e8e8e8;
+  margin: 80px 0;
+}
+.gm-track {
+  display: flex; white-space: nowrap;
+  animation: tickRoll 40s linear infinite;
+}
+.gm-item {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(28px, 4vw, 52px);
+  font-weight: 400; font-style: italic;
+  color: #e8e8e8; padding: 0 40px; flex-shrink: 0;
+}
+.gm-sep { font-style: normal; color: #d0d0d0; font-size: 0.5em; vertical-align: middle; }
+
+/* ── SERVICES ── */
+#services {
+  padding: 120px 56px;
+  border-top: 1px solid #e8e8e8;
+}
+.svc-heading {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(32px, 4vw, 56px); font-weight: 400;
+  letter-spacing: -0.02em; line-height: 1;
+  margin-bottom: 48px;
+}
+.svc-heading em { font-style: italic; }
+.svc-list { display: flex; flex-direction: column; border-top: 1px solid #e8e8e8; }
+.svc-row {
+  display: grid; grid-template-columns: 48px 1fr auto;
+  align-items: center; gap: 28px;
+  padding: 24px 0; border-bottom: 1px solid #e8e8e8;
+  cursor: none; transition: padding-left .3s;
+}
+.svc-row:hover { padding-left: 8px; }
+.svc-n { font-family: 'Playfair Display', serif; font-style: italic; font-size: 14px; color: #ccc; }
+.svc-title { font-size: 16px; font-weight: 400; margin-bottom: 3px; }
+.svc-desc { font-size: 13px; font-weight: 300; color: #777; line-height: 1.6; }
+.svc-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.svc-tag {
+  font-size: 9px; font-weight: 400; letter-spacing: 0.1em;
+  text-transform: uppercase; padding: 4px 9px;
+  border: 1px solid #e8e8e8; color: #bbb;
+}
+
+/* ── CONTACT ── */
+#contact {
+  padding: 120px 56px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 80px; align-items: center;
+  border-top: 1px solid #e8e8e8;
+}
+.contact-big {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(36px, 5vw, 68px); font-weight: 400;
+  letter-spacing: -0.03em; line-height: 1.05;
+}
+.contact-big em { font-style: italic; }
+.contact-p {
+  font-size: 15px; font-weight: 300; color: #555;
+  line-height: 1.72; margin-top: 20px; max-width: 360px;
+}
+.contact-email {
+  display: inline-flex; align-items: center; gap: 12px;
+  margin-top: 40px;
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(16px, 2vw, 22px); font-style: italic;
+  color: #0a0a0a; text-decoration: none; cursor: none;
+  border-bottom: 1px solid #e8e8e8; padding-bottom: 4px;
+  transition: border-color .2s;
+}
+.contact-email:hover { border-color: #0a0a0a; }
+.contact-panel {
+  border: 1px solid #e8e8e8;
+}
+.cp-row {
+  padding: 18px 22px; border-bottom: 1px solid #e8e8e8;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: background .2s;
+}
+.cp-row:last-child { border-bottom: none; }
+.cp-row:hover { background: #fafafa; }
+.cp-key { font-size: 9px; font-weight: 400; letter-spacing: 0.22em; text-transform: uppercase; color: #bbb; }
+.cp-val { font-size: 14px; font-weight: 300; color: #0a0a0a; }
+.cp-val a { color: #0a0a0a; text-decoration: none; border-bottom: 1px solid #e8e8e8; }
+
+/* ── FOOTER ── */
+footer {
+  padding: 28px 56px;
+  display: flex; justify-content: space-between; align-items: center;
+  border-top: 1px solid #e8e8e8;
+}
+.foot-logo {
+  font-family: 'Playfair Display', serif; font-style: italic;
+  font-size: 15px; color: #888; text-decoration: none;
+}
+.foot-copy { font-size: 10px; color: #ccc; letter-spacing: 0.06em; }
+.foot-links { display: flex; gap: 24px; }
+.foot-links a {
+  font-size: 10px; font-weight: 400; letter-spacing: 0.12em;
+  text-transform: uppercase; color: #aaa; text-decoration: none;
+  transition: color .2s; cursor: none;
+}
+.foot-links a:hover { color: #0a0a0a; }
+
+/* ── MOBILE ── */
+@media (max-width: 860px) {
+  nav { padding: 18px 24px; }
+  .nav-links, .nav-avail { display: none; }
+  #hero { padding: 0 24px 48px; }
+  #about, #contact { grid-template-columns: 1fr; gap: 40px; padding: 80px 24px; }
+  #work, #services { padding: 80px 24px; }
+  .masonry { columns: 2; column-gap: 8px; }
+  .card { margin-bottom: 8px; }
+  .work-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+  .stat-row { grid-template-columns: repeat(3,1fr); }
+  footer { flex-direction: column; gap: 12px; text-align: center; padding: 24px; }
+  .svc-row { grid-template-columns: 36px 1fr; }
+  .svc-tags { display: none; }
+  body { cursor: auto; }
+  #cur, #cur-ring { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div id="cur"></div>
+<div id="cur-ring"></div>
+
+<!-- LOADER -->
+<div id="loader">
+  <div class="ld-inner">
+    <div class="ld-row"><span class="ld-txt">Envi Koleta</span></div>
+    <div class="ld-row"><span class="ld-txt">Portfolio</span></div>
+    <div class="ld-line"></div>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav id="nav" class="nav-zone">
+  <a class="nav-logo" href="#hero">Envi Koleta</a>
+  <ul class="nav-links">
+    <li><a href="#about">About</a></li>
+    <li><a href="#work">Work</a></li>
+    <li><a href="#services">Services</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ul>
+  <div class="nav-avail">
+    <div class="nav-dot"></div>
+    Available
+  </div>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-index">Athens, GR — 2026</div>
+  <div class="hero-kicker">Graphic Designer &amp; Illustrator</div>
+  <h1 class="hero-title">
+    <div class="hero-title-row"><span class="hero-title-inner">Design</span></div>
+    <div class="hero-title-row"><span class="hero-title-inner">that speaks</span></div>
+    <div class="hero-title-row"><span class="hero-title-inner">for itself.</span></div>
+  </h1>
+  <div class="hero-bottom">
+    <p class="hero-desc">
+      20-year-old graphic designer &amp; illustrator based in Athens, Greece. Logos, identities, characters, and worlds — built with intention.
+    </p>
+    <div class="hero-actions">
+      <a href="#work" class="btn-primary">View Work</a>
+      <a href="#contact" class="btn-text">Get in touch</a>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-track">
+    <span class="ti">Logo Design <span class="ti-sep">·</span></span>
+    <span class="ti">Brand Identity <span class="ti-sep">·</span></span>
+    <span class="ti">Illustration <span class="ti-sep">·</span></span>
+    <span class="ti">Character Design <span class="ti-sep">·</span></span>
+    <span class="ti">Poster Design <span class="ti-sep">·</span></span>
+    <span class="ti">T-shirt Graphics <span class="ti-sep">·</span></span>
+    <span class="ti">Athens, Greece <span class="ti-sep">·</span></span>
+    <span class="ti">Available for Freelance <span class="ti-sep">·</span></span>
+    <span class="ti">IEK ΑΚΜΗ <span class="ti-sep">·</span></span>
+    <span class="ti">Logo Design <span class="ti-sep">·</span></span>
+    <span class="ti">Brand Identity <span class="ti-sep">·</span></span>
+    <span class="ti">Illustration <span class="ti-sep">·</span></span>
+    <span class="ti">Character Design <span class="ti-sep">·</span></span>
+    <span class="ti">Poster Design <span class="ti-sep">·</span></span>
+    <span class="ti">T-shirt Graphics <span class="ti-sep">·</span></span>
+    <span class="ti">Athens, Greece <span class="ti-sep">·</span></span>
+    <span class="ti">Available for Freelance <span class="ti-sep">·</span></span>
+    <span class="ti">IEK ΑΚΜΗ <span class="ti-sep">·</span></span>
+  </div>
+</div>
+
+<!-- ABOUT -->
+<section id="about">
+  <div>
+    <div class="eyebrow reveal">About</div>
+    <h2 class="about-heading reveal d1">
+      Crafting visuals<br>with purpose<br>&amp; <em>edge.</em>
+    </h2>
+    <div class="stat-row reveal d2">
+      <div class="stat">
+        <div class="s-num">20+</div>
+        <div class="s-lbl">Projects</div>
+      </div>
+      <div class="stat">
+        <div class="s-num">3+</div>
+        <div class="s-lbl">Disciplines</div>
+      </div>
+      <div class="stat">
+        <div class="s-num" style="font-size:22px">IEK</div>
+        <div class="s-lbl">ΑΚΜΗ</div>
+      </div>
+    </div>
+  </div>
+  <div>
+    <p class="about-body reveal">I'm <strong>Envi Koleta</strong> — a graphic designer and illustrator studying at <strong>ΙΕΚ ΑΚΜΗ</strong> in Athens. At 20, I've built brand systems, logo families, character universes, and editorial designs.</p>
+    <p class="about-body reveal d1">From building the Darkrow fragrance identity from scratch to designing an entire unreleased comic universe — every project is about making something that <strong>doesn't look like everything else.</strong></p>
+    <div class="skills-wrap reveal d2">
+      <span class="skill">Logo Design</span>
+      <span class="skill">Brand Identity</span>
+      <span class="skill">Illustration</span>
+      <span class="skill">Character Design</span>
+      <span class="skill">Poster Design</span>
+      <span class="skill">T-shirt Design</span>
+      <span class="skill">Editorial</span>
+      <span class="skill">Photoshop</span>
+      <span class="skill">Illustrator</span>
+    </div>
+    <div class="info-grid reveal d3">
+      <div class="info-row"><span class="ik">Location</span><span class="iv">Athens, Greece</span></div>
+      <div class="info-row"><span class="ik">Education</span><span class="iv">ΙΕΚ ΑΚΜΗ — Graphic Design</span></div>
+      <div class="info-row"><span class="ik">Status</span><span class="iv avail"><span class="avail-dot"></span>Available for Freelance</span></div>
+      <div class="info-row"><span class="ik">Portfolio</span><span class="iv"><a href="https://www.behance.net/Envikoleta" target="_blank">behance.net/Envikoleta</a></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- WORK -->
+<section id="work">
+  <div class="work-header reveal">
+    <h2 class="work-heading">Selected <em>Work</em></h2>
+    <a href="https://www.behance.net/Envikoleta" target="_blank" class="bh-link">Full portfolio on Behance →</a>
+  </div>
+
+  <div class="masonry reveal">
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/ee4a7c246953775.Y3JvcCw0Nzk0LDM3NTAsMTA2LDA.png" alt="Darkrow Fragrance" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Brand Identity</div>
+        <div class="c-name">Darkrow Fragrance<br>Identity Brand</div>
+        <a href="https://www.behance.net/gallery/246953775/Darkrow-Fragrance-identity-brand" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/47c98c246954271.Y3JvcCw2NTIxLDUxMDEsMjAxNyww.png" alt="Chinese Embassy Logo" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Logo Design · Contest</div>
+        <div class="c-name">Chinese Embassy Logo</div>
+        <a href="https://www.behance.net/gallery/246954271/Logo-for-the-Chinese-embassy-in-Greece-Contest" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/d8b2b3245436815.Y3JvcCwyMjYxLDE3NjksMjkxLDA.png" alt="Character Designs" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Character Design</div>
+        <div class="c-name">Unreleased Comic<br>Characters</div>
+        <a href="https://www.behance.net/gallery/245436815/Character-Designs-(-Unreleased-Comic-)" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/069288245436505.Y3JvcCwxNTM0LDEyMDAsMTMyLDA.png" alt="Darkrow Logo" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Logo Design</div>
+        <div class="c-name">Darkrow<br>Fragrance Logo</div>
+        <a href="https://www.behance.net/gallery/245436505/Fregrance-Logo-DARKROW" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/d0ffee246953989.Y3JvcCwzNTA4LDI3NDMsMCwxMTEx.png" alt="Headphone Poster" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Poster Design</div>
+        <div class="c-name">Headphone Poster</div>
+        <a href="https://www.behance.net/gallery/246953989/Headphone-poster" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/5a214e245437009.Y3JvcCwyMjYxLDE3NjksMjkxLDA.png" alt="Cartoon Backgrounds" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Illustration</div>
+        <div class="c-name">Comic Backgrounds</div>
+        <a href="https://www.behance.net/gallery/245437009/Cartoon-Backgrounds-(-Unreleased-Comic-)" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/d666c0245436297.Y3JvcCwxMDk2LDg1NywwLDM1Mg.png" alt="MeLa Brand Card" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Brand Identity</div>
+        <div class="c-name">MeLa Brand Card</div>
+        <a href="https://www.behance.net/gallery/245436297/MeLa-Identity-brand-card" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/7c0843245436921.Y3JvcCwyMjU0LDE3NjMsMCwyNTE.png" alt="Cartoon Teacher" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Illustration · Commission</div>
+        <div class="c-name">Cartoon Teacher</div>
+        <a href="https://www.behance.net/gallery/245436921/Cartoon-teacher-(-Commission-)" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/167313245436375.Y3JvcCwxMzQ2NywxMDUzNCw0MDMzLDA.png" alt="Invincible Vinyl" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Editorial Design</div>
+        <div class="c-name">Invincible S3<br>Vinyl Cover</div>
+        <a href="https://www.behance.net/gallery/245436375/Invincible-Season-3-Vinyl-Cover" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/f3e303245436249.Y3JvcCwzMTI5LDI0NDcsNjksMA.png" alt="MeLa Logo" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">Logo Design</div>
+        <div class="c-name">MeLa Logo</div>
+        <a href="https://www.behance.net/gallery/245436249/MeLa-Logo" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div><img src="https://mir-s3-cdn-cf.behance.net/projects/max_808/cf7dbc245436731.Y3JvcCwyMDQ4LDE2MDEsMCwyMjM.png" alt="T-shirt Design II" loading="lazy"></div>
+      <div class="card-over">
+        <div class="c-cat">T-shirt · Commission</div>
+        <div class="c-name">T-shirt Design II</div>
+        <a href="https://www.behance.net/gallery/245436731/T-shirt-Design-2-(-Commission-)" target="_blank" class="c-link">View →</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="work-cta-wrap reveal">
+    <a href="https://www.behance.net/Envikoleta" target="_blank" class="btn-primary">View Full Portfolio on Behance</a>
+  </div>
+
+  <!-- Ghost marquee -->
+  <div class="ghost-marquee">
+    <div class="gm-track">
+      <span class="gm-item">Brand Identity</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Logo Design</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Illustration</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Character Design</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Athens, Greece</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Visual Storytelling</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Brand Identity</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Logo Design</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Illustration</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Character Design</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Athens, Greece</span><span class="gm-item gm-sep"> · </span>
+      <span class="gm-item">Visual Storytelling</span><span class="gm-item gm-sep"> · </span>
+    </div>
+  </div>
+</section>
+
+<!-- SERVICES -->
+<section id="services">
+  <div class="eyebrow reveal">Services</div>
+  <h2 class="svc-heading reveal d1">What I <em>offer</em></h2>
+  <div class="svc-list reveal d2">
+    <div class="svc-row"><span class="svc-n">01</span><div><div class="svc-title">Logo &amp; Brand Identity</div><div class="svc-desc">Complete visual systems — logo, palette, typography, and guidelines built to last.</div></div><div class="svc-tags"><span class="svc-tag">Logo</span><span class="svc-tag">Identity</span></div></div>
+    <div class="svc-row"><span class="svc-n">02</span><div><div class="svc-title">Illustration &amp; Character Design</div><div class="svc-desc">Custom characters, comic worlds, and illustrations from concept to final artwork.</div></div><div class="svc-tags"><span class="svc-tag">Characters</span><span class="svc-tag">Comics</span></div></div>
+    <div class="svc-row"><span class="svc-n">03</span><div><div class="svc-title">Poster &amp; Print Design</div><div class="svc-desc">Bold compositions designed for impact — at any scale, in any context.</div></div><div class="svc-tags"><span class="svc-tag">Poster</span><span class="svc-tag">Print</span></div></div>
+    <div class="svc-row"><span class="svc-n">04</span><div><div class="svc-title">T-shirt &amp; Apparel Graphics</div><div class="svc-desc">Wearable art that balances creative vision with production realities.</div></div><div class="svc-tags"><span class="svc-tag">T-shirt</span><span class="svc-tag">Apparel</span></div></div>
+    <div class="svc-row"><span class="svc-n">05</span><div><div class="svc-title">Editorial &amp; Cover Design</div><div class="svc-desc">Album artwork, vinyl covers, and editorial pieces that elevate their content.</div></div><div class="svc-tags"><span class="svc-tag">Editorial</span><span class="svc-tag">Covers</span></div></div>
+    <div class="svc-row"><span class="svc-n">06</span><div><div class="svc-title">Freelance Commissions</div><div class="svc-desc">Open to all creative collaborations. Bring the brief — I bring the craft.</div></div><div class="svc-tags"><span class="svc-tag">Commission</span></div></div>
+  </div>
+</section>
+
+<!-- CONTACT -->
+<section id="contact">
+  <div>
+    <div class="eyebrow reveal">Contact</div>
+    <h2 class="contact-big reveal d1">Let's make<br>something<br><em>great.</em></h2>
+    <p class="contact-p reveal d2">Available for freelance work, commissions, and creative partnerships. Let's build something that stands out.</p>
+    <a href="mailto:envikoleta@gmail.com" class="contact-email reveal d3">Get in touch →</a>
+  </div>
+  <div class="contact-panel reveal d2">
+    <div class="cp-row"><div class="cp-key">Location</div><div class="cp-val">Athens, Greece</div></div>
+    <div class="cp-row"><div class="cp-key">Education</div><div class="cp-val">ΙΕΚ ΑΚΜΗ — Graphic Design</div></div>
+    <div class="cp-row"><div class="cp-key">Status</div><div class="cp-val avail"><span class="avail-dot"></span>Open to Freelance</div></div>
+    <div class="cp-row"><div class="cp-key">Portfolio</div><div class="cp-val"><a href="https://www.behance.net/Envikoleta" target="_blank">behance.net/Envikoleta</a></div></div>
+    <div class="cp-row"><div class="cp-key">Specialisms</div><div class="cp-val" style="color:#888;font-size:13px">Logo · Branding · Illustration · Character</div></div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <a class="foot-logo" href="#hero">Envi Koleta</a>
+  <div class="foot-copy">© 2026 Envi Koleta. All rights reserved.</div>
+  <div class="foot-links">
+    <a href="https://www.behance.net/Envikoleta" target="_blank">Behance</a>
+    <a href="#work">Work</a>
+    <a href="#contact">Contact</a>
+  </div>
+</footer>
+
+<script>
+/* LOADER */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    const L = document.getElementById('loader');
+    L.style.transition = 'opacity .6s';
+    L.style.opacity = '0';
+    setTimeout(() => L.style.display = 'none', 650);
+  }, 1800);
+});
+
+/* CURSOR */
+const cur = document.getElementById('cur');
+const ring = document.getElementById('cur-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; });
+(function loop(){
+  cur.style.left=mx+'px'; cur.style.top=my+'px';
+  rx+=(mx-rx)*.1; ry+=(my-ry)*.1;
+  ring.style.left=rx+'px'; ring.style.top=ry+'px';
+  requestAnimationFrame(loop);
+})();
+document.querySelectorAll('.nav-zone,.nav-zone *').forEach(el=>{
+  el.addEventListener('mouseenter',()=>document.body.classList.add('cur-nav'));
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('cur-nav'));
+});
+document.querySelectorAll('a,button,.card,.svc-row,.skill,.about-card').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{ if(!document.body.classList.contains('cur-nav')) document.body.classList.add('hov'); });
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('hov'));
+});
+
+/* NAV STUCK */
+window.addEventListener('scroll',()=>{
+  document.getElementById('nav').classList.toggle('stuck', window.scrollY>50);
+});
+
+/* REVEAL */
+const ro = new IntersectionObserver(entries=>entries.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('vis'); }),{threshold:.1});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* SMOOTH SCROLL */
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+  a.addEventListener('click',e=>{
+    const t=document.querySelector(a.getAttribute('href'));
+    if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth'});}
+  });
+});
+</script>
+</body>
+</html>
+
 <title>Envi Koleta — Graphic Designer & Illustrator</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@200;300;400;700;900&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
